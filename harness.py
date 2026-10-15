@@ -30,20 +30,27 @@ def _locations(world):
     return places
 
 
+def _resolve(world, where, op):
+    """Accept 'crate' for 'cell/crate' when only one feature has that name."""
+    places = _locations(world)
+    if where in places:
+        return where
+    matches = [p for p in places if p.split("/")[-1] == where and "/" in p]
+    if len(matches) == 1:
+        return matches[0]
+    raise PlanError(f"{op}: bad location {where!r}. Valid: {sorted(places)}")
+
+
 def _move_item(world, item, to):
     if item not in world["items"]:
         raise PlanError(f"move_item: no item {item!r}. Items: {sorted(world['items'])}")
-    if to not in _locations(world):
-        raise PlanError(f"move_item: bad location {to!r}. Valid: {sorted(_locations(world))}")
-    world["items"][item]["at"] = to
+    world["items"][item]["at"] = _resolve(world, to, "move_item")
 
 
 def _add_item(world, item, at, desc="", takeable=True):
     if item in world["items"]:
-        raise PlanError(f"add_item: {item!r} already exists")
-    if at not in _locations(world):
-        raise PlanError(f"add_item: bad location {at!r}. Valid: {sorted(_locations(world))}")
-    world["items"][item] = {"at": at, "desc": desc or f"A {item}.", "takeable": bool(takeable)}
+        raise PlanError(f"add_item: {item!r} already exists. Pick a different name, or use move_item")
+    world["items"][item] = {"at": _resolve(world, at, "add_item"), "desc": desc or f"A {item}.", "takeable": bool(takeable)}
 
 
 def _extend_path(world, room, direction, count):
@@ -93,10 +100,22 @@ TOOLS = {  # shown to the DM so it knows its options
 }
 
 
+OP_TOOL = {"move_item": "stage", "add_item": "stage", "extend_path": "chain",
+           "look_cooldown": "contract", "second_key": "contract", "pest": "contract", "lie": "contract"}
+
+
+def normalize(plan):
+    """Ops belong to exactly one tool, so a missing or wrong `tool` is fixed rather than rejected."""
+    for action in plan:
+        if action.get("op") in OP_TOOL:
+            action["tool"] = OP_TOOL[action["op"]]
+    return plan
+
+
 def rig_world(world, plan):
     """Apply Stage/Chain/lie actions to a copy of the world; return it."""
     world = copy.deepcopy(world)
-    for action in plan:
+    for action in normalize(plan):
         tool, op = action.get("tool"), action.get("op")
         args = {k: v for k, v in action.items() if k not in ("tool", "op", "reason")}
         try:

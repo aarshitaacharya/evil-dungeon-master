@@ -52,7 +52,7 @@ def extract_json(text):
     return json.loads(text[start:end + 1])
 
 
-def propose_plan(history, base_world, ask=None, attempts=3, judge=None):
+def propose_plan(history, base_world, ask=None, attempts=4, judge=None):
     """Ask the DM for a plan; validate it (and judge it, if given); feed errors back and retry.
 
     Returns (plan_dict, notes). Falls back to an empty plan if the DM keeps failing.

@@ -30,6 +30,14 @@ class HarnessTest(unittest.TestCase):
         with self.assertRaises(PlanError):
             rig_world(DEFAULT_WORLD, [{"tool": "chaos", "op": "x"}])
 
+    def test_forgiving_about_tool_name_and_bare_feature(self):
+        plan = [{"tool": "chain", "op": "move_item", "item": "iron key", "to": "chest"}]   # wrong tool, bare feature
+        world = rig_world(DEFAULT_WORLD, plan)
+        self.assertEqual(world["items"]["iron key"]["at"], "study/chest")
+        self.assertEqual(plan[0]["tool"], "stage")
+        with self.assertRaises(PlanError):
+            rig_world(DEFAULT_WORLD, [{"op": "add_item", "item": "iron key", "at": "cell"}])  # already exists
+
     def test_extend_path_lengthens_route(self):
         plan = [{"tool": "chain", "op": "extend_path", "room": "hallway", "direction": "east", "count": 2}]
         script = ["go north", "go east", "go east", "go east", "take key", "go west", "go west", "go west",
