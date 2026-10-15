@@ -4,3 +4,7 @@ __pycache__/
 *.pyc
 logs/
 .DS_Store
+
+# Third-party art (Pixel_Poem). Its license forbids redistribution; download it yourself.
+2D Pixel Dungeon Asset Pack/
+Enemy_Animations_Set/
