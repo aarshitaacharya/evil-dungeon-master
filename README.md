@@ -4,11 +4,11 @@ An adversarial environment-design project. A **Player** agent plays a small text
 
 The design is a small-scale implementation of the ideas in Google's **EnvHarness** (see below): change an environment's starting state and rules from the outside, without modifying the environment's own code.
 
-**Round 1: the baseline.** No rigging. The Player explores and escapes, wasting a few moves.
+**Round 1: the baseline.** No rigging. The Player explores, takes a few wrong turns, and escapes in 11 moves (par 7).
 
 ![Baseline round: the Player explores the dungeon with no rigging](docs/baseline.gif)
 
-**Round 2: the DM schemes.** The DM reads the last trajectory, hides the key in the chest and adds a pest, the judge approves it (par 9), and the Player has to work around it.
+**Round 3: the DM schemes, and wins.** The DM reads how the Player handled the last rounds, hides the real key in the chest, plants two decoy keys, and stretches the hallway by four rooms. The judge approves it (a perfect player escapes in 16 moves). The Player picks up both decoys, wanders the long hallway, and runs out of its 25 moves.
 
 ![The DM analyses the Player, rigs the dungeon, the judge approves it, and the Player tries again](docs/scheming.gif)
 
@@ -31,7 +31,24 @@ flowchart LR
 4. The judge searches the rigged game for a winning route. If there isn't one, the DM is told why and tries again. If there is, the shortest route becomes the round's **par**.
 5. The harness applies the plan on top of the untouched game, and the next round starts.
 
+The Player gets 25 moves per round. The DM is told that, and that making the Player fail is its goal. The judge keeps it honest by only approving dungeons a perfect player can escape in 20 moves or fewer.
+
 The scoreboard reports **wasted moves** (moves taken minus par). Win or lose alone is too coarse to show how much the DM is hurting the Player.
+
+### Example: one live run
+
+A 6-round run with `gemini-3.1-flash-lite` as the Player and Nemotron as the DM. Round 1 is the unrigged baseline.
+
+| Round | Result | Moves | Par | DM's rigging |
+|---|---|---|---|---|
+| 1 | win | 11 | 7 | none (baseline) |
+| 2 | win | 17 | 12 | key into the chest, decoy key, longer hallway |
+| 3 | **loss** | 25 | 16 | key into the chest, two decoy keys, hallway +4 rooms |
+| 4 | win | 14 | 8 | guard goose that blocks the first `take`, second key needed |
+| 5 | **loss** | 25 | 15 | longer hallway, goose, a lying room description |
+| 6 | win | 16 | 11 | goose, lying description, longer hallway |
+
+The Player wasted 4 moves unrigged and 7 on average once the DM was rigging, and lost 2 of the 5 rigged rounds. The full run is in `replays/live-demo.jsonl`. Results vary from run to run.
 
 ## The EnvHarness idea
 
@@ -67,12 +84,12 @@ What this project is not: it is a toy. The game is a hand-written dictionary of 
 | `harness.py` | The rigging layer: applies Stage/Chain to a copy of the world and enforces Contracts around `step()`. |
 | `player.py` | The Player's agent loop, command validation (re-asks on garbled output) and trajectory logging. |
 | `dm.py` | The Evil DM: builds the prompt from past trajectories, parses and validates its JSON, retries on bad plans. |
-| `judge.py` | Breadth-first solver. Verifies winnability and computes par. Plain code, so it cannot be talked into anything. |
+| `judge.py` | Breadth-first solver. Verifies a perfect player can escape within 20 moves and computes par. Plain code, so it cannot be talked into anything. |
 | `llm.py` | One small client for any OpenAI-compatible API, with retries, token metering and budgets. |
 | `main.py` | The arena. Emits events that the terminal printer, the replay file and the browser all consume. |
 | `serve.py` | Local server for the browser viewer, including live runs over Server-Sent Events. |
 | `ui/` | The pixel-art viewer (vanilla JS and Canvas). |
-| `tests/` | 29 unit tests; they run offline with scripted agents. |
+| `tests/` | 31 unit tests; they run offline with scripted agents. |
 
 ## Tech stack
 
