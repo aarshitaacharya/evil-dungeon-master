@@ -1,5 +1,7 @@
 # Evil Dungeon Master
 
+![Evil Dungeon Master replay: the DM rigs a round and the Player falls for the decoy](docs/demo.gif)
+
 An adversarial environment-design project. A **Player** agent plays a small text
 adventure (find the key, open the door). An **Evil DM** agent reads the Player's
 trajectories, identifies where it struggles, and rigs the next round to exploit

@@ -215,7 +215,7 @@ function render() {
   const cv = $("#map"); ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = "#0c0610"; ctx.fillRect(0, 0, cv.width, cv.height);
   if (view.layout && view.world) {
-    const raw = Math.min((cv.width - 16 * dpr) / view.layout.width, (cv.height - 16 * dpr) / view.layout.height);
+    const raw = Math.min((cv.width - 4 * dpr) / view.layout.width, (cv.height - 4 * dpr) / view.layout.height);
     scale = raw >= 1 ? Math.floor(raw) : Math.max(0.5, Math.floor(raw * 4) / 4);
     offX = (cv.width - view.layout.width * scale) / 2; offY = (cv.height - view.layout.height * scale) / 2;
     ctx.setTransform(scale, 0, 0, scale, offX, offY); ctx.imageSmoothingEnabled = false;
