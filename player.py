@@ -13,6 +13,7 @@ from game import Game
 from llm import chat
 
 MAX_MOVES = 25
+MAX_REASKS = 2
 
 SYSTEM_PROMPT = """You are an adventurer locked in a dungeon, playing a text adventure. Your goal: escape.
 
@@ -32,6 +33,16 @@ def parse_command(reply):
     return "look"
 
 
+_WORD = r"[a-z]{1,12}"
+VALID_COMMAND = re.compile(
+    rf"^(look|inventory|help|(go )?(north|south|east|west)|open door"
+    rf"|(take|get|search|examine|inspect) {_WORD}( {_WORD}){{0,2}}"
+    rf"|use {_WORD}( {_WORD}){{0,2}} on {_WORD}( {_WORD}){{0,2}})$"
+)
+REASK = ("That was not a single valid command. Reply with exactly ONE command and nothing "
+         "else, for example: go north | take key | search rug | use key on door")
+
+
 def run_episode(game, ask=None, max_moves=MAX_MOVES, on_turn=None):
     """Play one game. `ask(messages) -> str` is the model; defaults to the PLAYER role."""
     ask = ask or (lambda messages: chat("PLAYER", messages))
@@ -42,10 +53,17 @@ def run_episode(game, ask=None, max_moves=MAX_MOVES, on_turn=None):
 
     while not done and game.moves < max_moves:
         reply = ask(messages)                       # think
-        command = parse_command(reply)
+        command, retries = parse_command(reply), 0
+        while not VALID_COMMAND.match(command) and retries < MAX_REASKS:
+            # Garbled output (glued commands, leaked model tokens): ask again, and
+            # keep the garbage out of the history so the model can't copy itself.
+            retries += 1
+            reply = ask(messages + [{"role": "assistant", "content": command[:80]},
+                                    {"role": "user", "content": REASK}])
+            command = parse_command(reply)
         result, done = game.step(command)           # act
         turns.append({"move": game.moves, "room": game.room, "saw": observation,
-                      "raw_reply": reply, "command": command, "result": result})
+                      "raw_reply": reply, "command": command, "retries": retries, "result": result})
         if on_turn:
             on_turn(turns[-1])
         messages += [{"role": "assistant", "content": command},

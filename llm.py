@@ -4,6 +4,8 @@ Each AI role ("PLAYER", "DM") is configured by three env vars, so swapping a
 model or provider is a one-line change in .env:
 
     <ROLE>_BASE_URL, <ROLE>_API_KEY, <ROLE>_MODEL
+
+Optional: <ROLE>_PARAMS, a JSON object of extra request fields.
 """
 import json
 import os
@@ -37,6 +39,7 @@ def chat(role, messages, temperature=0.7, retries=6):
         "model": os.environ[f"{role}_MODEL"],
         "messages": messages,
         "temperature": temperature,
+        **json.loads(os.environ.get(f"{role}_PARAMS", "{}")),  # e.g. {"reasoning_effort": "low"}
     }).encode()
     request = urllib.request.Request(
         f"{base}/chat/completions",
