@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 import judge
+import llm
 from dm import propose_plan
 from game import DEFAULT_WORLD, Game
 from harness import Harness
@@ -111,7 +112,10 @@ def file_recorder(run_dir):
 
 def main(rounds=5):
     record = file_recorder(Path("logs") / time.strftime("%Y%m%d-%H%M%S"))
-    run(rounds, lambda e: (record(e), terminal_printer(e)), pause=0.3)
+    try:
+        run(rounds, lambda e: (record(e), terminal_printer(e)), pause=0.3)
+    finally:
+        print(f"\n{DIM}Tokens used this run -> {llm.usage_report()}{RESET}")
 
 
 if __name__ == "__main__":

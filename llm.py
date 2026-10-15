@@ -5,7 +5,8 @@ model or provider is a one-line change in .env:
 
     <ROLE>_BASE_URL, <ROLE>_API_KEY, <ROLE>_MODEL
 
-Optional: <ROLE>_PARAMS, a JSON object of extra request fields.
+Optional: <ROLE>_PARAMS, a JSON object of extra request fields, and
+<ROLE>_TOKEN_BUDGET, a per-run token cap (0 or unset = no cap).
 """
 import json
 import os
@@ -14,6 +15,18 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+
+USAGE = {}  # role -> {"calls", "prompt", "completion"}: a running token meter
+
+
+class BudgetExceeded(RuntimeError):
+    pass
+
+
+def usage_report():
+    return "  ".join(f"{role}: {u['calls']} calls, {u['prompt'] + u['completion']:,} tokens"
+                     for role, u in USAGE.items()) or "no LLM calls"
 
 
 def load_env(path=".env"):
@@ -31,6 +44,10 @@ def load_env(path=".env"):
 def chat(role, messages, temperature=0.7, retries=6):
     """Send chat messages as the given role; return the reply text."""
     load_env()
+    spent = USAGE.setdefault(role, {"calls": 0, "prompt": 0, "completion": 0})
+    budget = int(os.environ.get(f"{role}_TOKEN_BUDGET", "0"))  # 0 = unlimited
+    if budget and spent["prompt"] + spent["completion"] >= budget:
+        raise BudgetExceeded(f"{role} used its {budget:,}-token budget for this run. Stopping.")
     base = os.environ[f"{role}_BASE_URL"].rstrip("/")
     key = os.environ.get(f"{role}_API_KEY", "")
     if not key:
@@ -50,10 +67,18 @@ def chat(role, messages, temperature=0.7, retries=6):
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
-                return json.load(response)["choices"][0]["message"]["content"]
+                data = json.load(response)
+            usage = data.get("usage", {})
+            spent["calls"] += 1
+            spent["prompt"] += usage.get("prompt_tokens", 0)
+            spent["completion"] += usage.get("completion_tokens", 0)
+            return data["choices"][0]["message"]["content"]
         except urllib.error.HTTPError as err:
             # Free tiers rate-limit hard: back off and retry on 429 / 5xx.
             detail = err.read().decode()
+            flaky = err.code == 400 and "failed_generation" in detail  # model glitch: just resample
+            if flaky and attempt < retries - 1:
+                continue
             if err.code in (429, 500, 502, 503) and attempt < retries - 1:
                 hint = re.search(r"try again in ([\d.]+)s", detail)  # servers often say how long
                 time.sleep(float(hint.group(1)) + 1 if hint else 2 ** attempt * 2)
