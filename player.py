@@ -40,7 +40,7 @@ VALID_COMMAND = re.compile(
     rf"|use {_WORD}( {_WORD}){{0,2}} on {_WORD}( {_WORD}){{0,2}})$"
 )
 REASK = ("That was not a single valid command. Reply with exactly ONE command and nothing "
-         "else, for example: go north | take key | search rug | use key on door")
+         "else, for example: go north | take key | search crate | use key on door")
 
 
 def run_episode(game, ask=None, max_moves=MAX_MOVES, on_turn=None):

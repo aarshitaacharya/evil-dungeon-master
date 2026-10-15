@@ -22,7 +22,7 @@ DEFAULT_WORLD = {
         "cell": {
             "desc": "A damp stone cell. The only way out is a doorway to the north.",
             "exits": {"north": {"to": "hallway"}},
-            "features": {"rug": "A threadbare rug lies on the floor."},
+            "features": {"crate": "A splintered wooden crate sits in the corner."},
         },
         "hallway": {
             "desc": "A dusty hallway lit by flickering torches.",
@@ -34,12 +34,12 @@ DEFAULT_WORLD = {
                     "door": {"locked_by": "iron key", "locked": True, "open": False},
                 },
             },
-            "features": {},
+            "features": {"shelf": "A crooked shelf of dusty flasks leans against the wall."},
         },
         "study": {
             "desc": "A cramped study smelling of old ink.",
             "exits": {"west": {"to": "hallway"}},
-            "features": {"desk": "A heavy oak desk."},
+            "features": {"chest": "A heavy iron-banded chest sits against the wall."},
         },
     },
     "items": {

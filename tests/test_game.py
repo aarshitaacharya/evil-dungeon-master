@@ -21,11 +21,11 @@ class GameTest(unittest.TestCase):
 
     def test_hidden_item_needs_search(self):
         world = {**Game().base_world}
-        world["items"] = {"iron key": {"at": "cell/rug", "desc": "", "takeable": True}}
+        world["items"] = {"iron key": {"at": "cell/crate", "desc": "", "takeable": True}}
         g = Game(world)
         self.assertNotIn("key", g.step("look")[0])
         self.assertIn("no key", g.step("take key")[0])
-        g.step("search rug")
+        g.step("search crate")
         self.assertIn("take the iron key", g.step("take key")[0])
 
     def test_reset_restores_world(self):

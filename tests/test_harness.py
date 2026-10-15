@@ -14,15 +14,15 @@ def play(plan, script):
 
 class HarnessTest(unittest.TestCase):
     def test_stage_moves_key_and_original_is_untouched(self):
-        plan = [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "study/desk"}]
+        plan = [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "study/chest"}]
         world = rig_world(DEFAULT_WORLD, plan)
-        self.assertEqual(world["items"]["iron key"]["at"], "study/desk")
+        self.assertEqual(world["items"]["iron key"]["at"], "study/chest")
         self.assertEqual(DEFAULT_WORLD["items"]["iron key"]["at"], "study")
 
     def test_hidden_key_breaks_old_path(self):
-        plan = [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "study/desk"}]
+        plan = [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "study/chest"}]
         self.assertFalse(play(plan, WIN)["won"])
-        self.assertTrue(play(plan, WIN[:2] + ["search desk"] + WIN[2:])["won"])
+        self.assertTrue(play(plan, WIN[:2] + ["search chest"] + WIN[2:])["won"])
 
     def test_bad_plan_raises(self):
         with self.assertRaises(PlanError):
@@ -52,10 +52,10 @@ class HarnessTest(unittest.TestCase):
         self.assertEqual(extract_json('Sure!\n```json\n{"a": 1}\n```\nEnjoy'), {"a": 1})
 
     def test_dm_retries_then_falls_back(self):
-        replies = iter(["no json here", '{"analysis": "x", "actions": [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "cell/rug"}]}'])
+        replies = iter(["no json here", '{"analysis": "x", "actions": [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "cell/crate"}]}'])
         plan, notes = propose_plan([], DEFAULT_WORLD, ask=lambda m: next(replies))
         self.assertEqual(len(notes), 1)
-        self.assertEqual(plan["actions"][0]["to"], "cell/rug")
+        self.assertEqual(plan["actions"][0]["to"], "cell/crate")
         plan, notes = propose_plan([], DEFAULT_WORLD, ask=lambda m: "garbage", attempts=2)
         self.assertEqual(plan["actions"], [])
 

@@ -9,7 +9,7 @@ it does three kinds of things:
 
 To the Player it looks exactly like a Game: reset() and step().
 A plan is a list of actions, e.g.
-  [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "cell/rug"}]
+  [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "cell/crate"}]
 """
 import copy
 import re

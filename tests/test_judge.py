@@ -14,8 +14,8 @@ class JudgeTest(unittest.TestCase):
         self.assertEqual(v.par, 7)
 
     def test_hidden_key_adds_a_search(self):
-        plan = [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "cell/rug"}]
-        self.assertIn("search rug", check(DEFAULT_WORLD, plan).path)
+        plan = [{"tool": "stage", "op": "move_item", "item": "iron key", "to": "cell/crate"}]
+        self.assertIn("search crate", check(DEFAULT_WORLD, plan).path)
 
     def test_chain_lengthens_par(self):
         plan = [{"tool": "chain", "op": "extend_path", "room": "hallway", "direction": "east", "count": 2}]
