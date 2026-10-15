@@ -89,6 +89,13 @@ const ITEM_SLOTS = [[3, 3.2], [5, 3.2], [4, 4.3], [3, 2], [5, 2]];
 const EXIT_SPOT = { north: [4, 1.5], south: [4, 4.5], east: [6.5, 3], west: [1.5, 3] };
 const px = (room, [cx, cy]) => [view.layout.origin[room][0] + cx * T, view.layout.origin[room][1] + cy * T];
 
+/** Pixel centre of a feature, and a spot beside it for the hero to stand. */
+function featureSpot(room, feat) {
+  const i = Math.max(Object.keys(view.world.rooms[room].features).indexOf(feat), 0), [cx, cy] = FEATURE_SLOTS[i % 4];
+  const [x, y] = px(room, [cx, cy]);
+  return { x, y, stand: [x + (cx < 4 ? 11 : -11), y + (cy < 3 ? 12 : -12)] };
+}
+
 /** Where each loose or hidden item is drawn: name -> {x, y, hidden}. */
 function itemPositions(items, world) {
   const out = {}, byRoom = {};
@@ -368,15 +375,26 @@ async function handle(e, instant) {
       if (!instant) { p.bubble = e.command; p.bubbleUntil = now() + 1400 / v.speed; await wait(420); }
       if (s.room !== prev.room) { if (instant) setPlayerAt(s.room); else await walk(route(prev.room, s.room, v.world)); }
       else if (!instant && /^(go|north|south|east|west)/.test(e.command) && FAIL.test(e.result)) addFx({ kind: "text", x: p.x, y: p.y - 14, text: "bump!", dur: 700, color: "#e5484d" });
-      for (const [name, at] of Object.entries(s.items)) {
-        if (prev.items[name] !== at && !instant) {
-          const posNow = itemPositions(s.items, v.world)[name] || itemPositions(prev.items, v.world)[name];
-          if (at === "inventory") { const [x, y] = itemPositions(prev.items, v.world)[name] ? [itemPositions(prev.items, v.world)[name].x, itemPositions(prev.items, v.world)[name].y] : [p.x, p.y]; addFx({ kind: "fly", name, from: [x, y], to: [p.x, p.y - 14], dur: 450 }); }
-          else if (posNow) addFx({ kind: "poof", x: posNow.x, y: posNow.y, dur: 600 });
-        }
-      }
       const m = e.command.match(/^(?:search|examine|inspect|look under|look at)\s+(\w+)/);
-      if (m && v.world.rooms[prev.room].features[m[1]] !== undefined) v.searched.add(`${prev.room}/${m[1]}`);
+      const feat = m && v.world.rooms[prev.room].features[m[1]] !== undefined ? m[1] : null;
+      const before = itemPositions(prev.items, v.world);
+      if (!instant) {
+        // walk to what the hero is interacting with, so the action is visible
+        if (feat && s.room === prev.room) await walk([featureSpot(prev.room, feat).stand]);
+        const taken = Object.keys(s.items).find((n) => s.items[n] === "inventory" && prev.items[n] !== "inventory");
+        if (taken && before[taken] && !before[taken].hidden) await walk([[before[taken].x - 10, before[taken].y + 3]]);
+      }
+      if (feat) v.searched.add(`${prev.room}/${feat}`);
+      const after = itemPositions(s.items, v.world);
+      for (const [name, at] of Object.entries(s.items)) {
+        if (prev.items[name] === at || instant) continue;
+        if (at === "inventory") addFx({ kind: "fly", name, from: before[name] ? [before[name].x, before[name].y] : [p.x, p.y], to: [p.x, p.y - 14], dur: 450 });
+        else if (prev.items[name].includes("/") && !at.includes("/") && feat) {        // revealed: pops out of the feature
+          const f = featureSpot(prev.room, feat);
+          addFx({ kind: "fly", name, from: [f.x, f.y], to: [after[name].x, after[name].y], dur: 700 });
+          addFx({ kind: "text", x: f.x, y: f.y - 12, text: `found ${name}!`, dur: 1400, color: "#5fd38d" });
+        } else if (after[name]) addFx({ kind: "poof", x: after[name].x, y: after[name].y, dur: 600 });
+      }
       for (const k of Object.keys(s.doors)) if (!instant && prev.doors[k] && (prev.doors[k].locked !== s.doors[k].locked)) addFx({ kind: "poof", x: p.x, y: p.y - 20, dur: 700 });
       if (!instant && /honks/.test(e.result)) addFx({ kind: "text", x: p.x, y: p.y - 14, text: "HONK!", dur: 900, color: "#ffd166" });
       if (!instant && /head swims/.test(e.result)) addFx({ kind: "text", x: p.x, y: p.y - 14, text: "dizzy…", dur: 900, color: "#b57cff" });

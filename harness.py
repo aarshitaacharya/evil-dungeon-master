@@ -87,7 +87,7 @@ TOOLS = {  # shown to the DM so it knows its options
         {"op": "look_cooldown", "note": "'look' only works on odd-numbered moves"},
         {"op": "second_key", "item": "<existing item>", "note": "door needs this item too"},
         {"op": "pest", "item": "<existing item>",
-         "note": "while that item is in the player's room, the first 'take' there fails"},
+         "note": "a creature (add it first, e.g. a non-takeable goose): while it is in the player's room, the first 'take' there fails. Don't use it on the key or other items the player must carry"},
         {"op": "lie", "room": "<room>", "text": "<false sentence added to the description>"},
     ],
 }
