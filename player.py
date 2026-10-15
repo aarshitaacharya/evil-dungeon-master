@@ -47,6 +47,7 @@ def run_episode(game, ask=None, max_moves=MAX_MOVES, on_turn=None):
     """Play one game. `ask(messages) -> str` is the model; defaults to the PLAYER role."""
     ask = ask or (lambda messages: chat("PLAYER", messages))
     observation = game.reset()
+    start_state = game.snapshot()
     messages = [{"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": observation}]
     turns, done = [], False
@@ -63,14 +64,15 @@ def run_episode(game, ask=None, max_moves=MAX_MOVES, on_turn=None):
             command = parse_command(reply)
         result, done = game.step(command)           # act
         turns.append({"move": game.moves, "room": game.room, "saw": observation,
-                      "raw_reply": reply, "command": command, "retries": retries, "result": result})
+                      "raw_reply": reply, "command": command, "retries": retries, "result": result,
+                      "state": game.snapshot()})
         if on_turn:
             on_turn(turns[-1])
         messages += [{"role": "assistant", "content": command},
                      {"role": "user", "content": result}]   # observe
         observation = result
 
-    return {"won": game.won, "moves": game.moves, "turns": turns}
+    return {"won": game.won, "moves": game.moves, "start_state": start_state, "turns": turns}
 
 
 def save_trajectory(trajectory, name):

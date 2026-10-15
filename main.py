@@ -1,6 +1,10 @@
 """The arena: Player vs Evil DM, round after round.
 
     python3 main.py [rounds]
+
+run() reports everything that happens as *events* (plain dicts) to an `emit`
+callback. The terminal printer, the log file and (soon) the browser UI are all
+just different listeners on the same event stream.
 """
 import json
 import sys
@@ -16,61 +20,98 @@ from player import run_episode
 RED, GREEN, DIM, BOLD, RESET = "\033[31m", "\033[32m", "\033[2m", "\033[1m", "\033[0m"
 
 
-def play_round(n, history, run_dir):
-    print(f"\n{BOLD}=== Round {n} ==={RESET}")
+# --- the arena: produces events -------------------------------------------------
+
+def play_round(n, history, emit, dm_ask=None, player_ask=None, pause=0.0):
+    emit({"type": "round_start", "round": n})
     if n == 1:
-        plan = {"analysis": "Baseline: no rigging.", "actions": []}
+        plan, notes = {"analysis": "Baseline: no rigging.", "actions": []}, []
     else:
-        print("The DM is scheming...")
-        plan, notes = propose_plan(history, DEFAULT_WORLD,
+        emit({"type": "dm_thinking", "round": n})
+        plan, notes = propose_plan(history, DEFAULT_WORLD, ask=dm_ask,
                                    judge=lambda actions: judge.check(DEFAULT_WORLD, actions))
-        for note in notes:
-            print(f"  {RED}! {note}{RESET}")
     verdict = judge.check(DEFAULT_WORLD, plan["actions"])
-    print(f"{BOLD}DM:{RESET} {plan['analysis']}")
-    for a in plan["actions"]:
-        print(f"  -> {a['tool']}/{a['op']}: {a.get('reason', '')}")
-    print(f"{DIM}Judge: winnable, par = {verdict.par} moves{RESET}")
+    harness = Harness(Game(), plan["actions"])
+    emit({"type": "round_setup", "round": n, "analysis": plan["analysis"], "actions": plan["actions"],
+          "notes": notes, "par": verdict.par, "perfect_path": list(verdict.path),
+          "world": harness.rigged_world})
 
-    def show(t):
-        print(f"  [{t['move']:>2}] {t['command']!r:<26} -> {t['result'].splitlines()[0]}")
-        time.sleep(0.3)  # stay polite to free-tier rate limits
+    def on_turn(turn):
+        emit({"type": "turn", "round": n, **turn})
+        time.sleep(pause)  # stay polite to free-tier rate limits
 
-    trajectory = run_episode(Harness(Game(), plan["actions"]), on_turn=show)
-    won = trajectory["won"]
-    print(f"  {GREEN + 'ESCAPED' if won else RED + 'FAILED'}{RESET} ({trajectory['moves']} moves)")
-
-    record = {"round": n, "plan": plan["actions"], "analysis": plan["analysis"],
-              "par": verdict.par, "perfect_path": verdict.path, "trajectory": trajectory}
-    (run_dir / f"round-{n}.json").write_text(json.dumps(record, indent=2))
-    return record
+    trajectory = run_episode(harness, ask=player_ask, on_turn=on_turn)
+    emit({"type": "round_end", "round": n, "won": trajectory["won"],
+          "moves": trajectory["moves"], "par": verdict.par})
+    return {"round": n, "plan": plan["actions"], "analysis": plan["analysis"],
+            "par": verdict.par, "trajectory": trajectory}
 
 
-def scoreboard(history):
+def run(rounds, emit, dm_ask=None, player_ask=None, pause=0.0):
+    emit({"type": "run_start", "rounds": rounds, "world": DEFAULT_WORLD})
+    history = []
+    for n in range(1, rounds + 1):
+        history.append(play_round(n, history, emit, dm_ask, player_ask, pause))
+    emit({"type": "run_end", "summary": summarize(history)})
+    return history
+
+
+def summarize(history):
+    rows = [{"round": r["round"], "won": r["trajectory"]["won"], "moves": r["trajectory"]["moves"],
+             "par": r["par"], "wasted": r["trajectory"]["moves"] - r["par"],
+             "changes": [a["op"] for a in r["plan"]]} for r in history]
+    rigged = rows[1:]
+    return {"rows": rows,
+            "rigged_wins": sum(r["won"] for r in rigged), "rigged_rounds": len(rigged),
+            "avg_wasted_rigged": sum(r["wasted"] for r in rigged) / len(rigged) if rigged else None,
+            "baseline_wasted": rows[0]["wasted"] if rows else None}
+
+
+# --- listeners: consume events --------------------------------------------------
+
+def terminal_printer(event):
+    t = event["type"]
+    if t == "round_start":
+        print(f"\n{BOLD}=== Round {event['round']} ==={RESET}")
+    elif t == "dm_thinking":
+        print("The DM is scheming...")
+    elif t == "round_setup":
+        for note in event["notes"]:
+            print(f"  {RED}! {note}{RESET}")
+        print(f"{BOLD}DM:{RESET} {event['analysis']}")
+        for a in event["actions"]:
+            print(f"  -> {a['tool']}/{a['op']}: {a.get('reason', '')}")
+        print(f"{DIM}Judge: winnable, par = {event['par']} moves{RESET}")
+    elif t == "turn":
+        print(f"  [{event['move']:>2}] {event['command']!r:<26} -> {event['result'].splitlines()[0]}")
+    elif t == "round_end":
+        print(f"  {GREEN + 'ESCAPED' if event['won'] else RED + 'FAILED'}{RESET} ({event['moves']} moves)")
+    elif t == "run_end":
+        print_scoreboard(event["summary"])
+
+
+def print_scoreboard(s):
     print(f"\n{BOLD}=== Scoreboard ==={RESET}")
     print(f"{'Rnd':<4}{'Result':<8}{'Moves':>6}{'Par':>5}{'Wasted':>8}  DM changed")
-    for r in history:
-        t = r["trajectory"]
-        wasted = t["moves"] - r["par"]
-        result = f"{GREEN}WIN {RESET}" if t["won"] else f"{RED}LOSS{RESET}"
-        changes = ", ".join(a["op"] for a in r["plan"]) or "-"
-        print(f"{r['round']:<4}{result:<{8 + len(GREEN + RESET)}}{t['moves']:>6}{r['par']:>5}{wasted:>8}  {changes}")
-    rigged = history[1:]
-    if rigged:
-        wins = sum(r["trajectory"]["won"] for r in rigged)
-        base = history[0]["trajectory"]["moves"] - history[0]["par"]
-        avg = sum(r["trajectory"]["moves"] - r["par"] for r in rigged) / len(rigged)
-        print(f"\nRigged rounds won: {wins}/{len(rigged)}. "
-              f"Avg wasted moves: {avg:.1f} rigged vs {base} baseline.")
+    for r in s["rows"]:
+        result = f"{GREEN}WIN {RESET}" if r["won"] else f"{RED}LOSS{RESET}"
+        print(f"{r['round']:<4}{result:<{8 + len(GREEN + RESET)}}{r['moves']:>6}{r['par']:>5}"
+              f"{r['wasted']:>8}  {', '.join(r['changes']) or '-'}")
+    if s["rigged_rounds"]:
+        print(f"\nRigged rounds won: {s['rigged_wins']}/{s['rigged_rounds']}. "
+              f"Avg wasted moves: {s['avg_wasted_rigged']:.1f} rigged vs {s['baseline_wasted']} baseline.")
+
+
+def file_recorder(run_dir):
+    """Append every event to events.jsonl: the replay file the UI will play back."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    out = open(run_dir / "events.jsonl", "a", buffering=1)
+    return lambda event: out.write(json.dumps(event) + "\n")
 
 
 def main(rounds=5):
-    history = []
-    run_dir = Path("logs") / time.strftime("%Y%m%d-%H%M%S")
-    run_dir.mkdir(parents=True)
-    for n in range(1, rounds + 1):
-        history.append(play_round(n, history, run_dir))
-    scoreboard(history)
+    record = file_recorder(Path("logs") / time.strftime("%Y%m%d-%H%M%S"))
+    run(rounds, lambda e: (record(e), terminal_printer(e)), pause=0.3)
 
 
 if __name__ == "__main__":

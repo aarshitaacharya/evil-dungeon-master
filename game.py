@@ -102,6 +102,14 @@ class Game:
             obs = f"You can't do that. {HELP}"
         return obs, self.won
 
+    def snapshot(self):
+        """Everything a viewer needs to draw the current state (no game logic required)."""
+        doors = {f"{room}:{d}": dict(ex["door"])
+                 for room, r in self.world["rooms"].items()
+                 for d, ex in r["exits"].items() if "door" in ex}
+        return {"room": self.room, "moves": self.moves, "won": self.won,
+                "items": {n: i["at"] for n, i in self.world["items"].items()}, "doors": doors}
+
     # -- helpers ----------------------------------------------------------------
 
     def _items_at(self, place):
