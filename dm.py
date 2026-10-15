@@ -50,8 +50,8 @@ def extract_json(text):
     return json.loads(text[start:end + 1])
 
 
-def propose_plan(history, base_world, ask=None, attempts=3):
-    """Ask the DM for a plan; validate it; feed errors back and retry.
+def propose_plan(history, base_world, ask=None, attempts=3, judge=None):
+    """Ask the DM for a plan; validate it (and judge it, if given); feed errors back and retry.
 
     Returns (plan_dict, notes). Falls back to an empty plan if the DM keeps failing.
     """
@@ -59,7 +59,7 @@ def propose_plan(history, base_world, ask=None, attempts=3):
     context = f"Dungeon layout and starting item locations:\n{describe_world(base_world)}\n\n"
     if history:
         context += "Previous rounds (most recent last):\n" + "\n\n".join(summarize(r) for r in history[-2:])
-        context += "\n\nDesign the next round."
+        context += "\n\nDesign the next round. Try something new if your last trick failed to stop the Player."
     else:
         context += "No rounds yet. Design the first round."
     messages = [{"role": "system", "content": SYSTEM_PROMPT.format(tools=json.dumps(TOOLS, indent=1))},
@@ -70,6 +70,10 @@ def propose_plan(history, base_world, ask=None, attempts=3):
         try:
             plan = extract_json(reply)
             rig_world(base_world, plan.get("actions", []))  # validate by dry run
+            if judge:
+                verdict = judge(plan["actions"])
+                if not verdict.winnable:
+                    raise ValueError("the judge says this dungeon is UNWINNABLE. Be fair: the player must be able to escape")
             return {"analysis": plan.get("analysis", ""), "actions": plan["actions"]}, notes
         except (ValueError, KeyError, AttributeError, TypeError, PlanError) as err:
             notes.append(f"DM broke format: {err}")

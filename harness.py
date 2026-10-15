@@ -134,6 +134,8 @@ class Harness:
         self.contracts = {a["op"]: a for a in self.plan if a.get("tool") == "contract"}
 
     def __getattr__(self, name):  # moves, won, room, world... come from the game
+        if name == "game" or name.startswith("__"):  # avoid recursion while copying
+            raise AttributeError(name)
         return getattr(self.game, name)
 
     def reset(self):
