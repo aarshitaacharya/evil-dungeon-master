@@ -7,6 +7,7 @@ model or provider is a one-line change in .env:
 """
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -25,7 +26,7 @@ def load_env(path=".env"):
             os.environ.setdefault(key.strip(), value.strip())
 
 
-def chat(role, messages, temperature=0.7, retries=4):
+def chat(role, messages, temperature=0.7, retries=6):
     """Send chat messages as the given role; return the reply text."""
     load_env()
     base = os.environ[f"{role}_BASE_URL"].rstrip("/")
@@ -49,7 +50,9 @@ def chat(role, messages, temperature=0.7, retries=4):
                 return json.load(response)["choices"][0]["message"]["content"]
         except urllib.error.HTTPError as err:
             # Free tiers rate-limit hard: back off and retry on 429 / 5xx.
+            detail = err.read().decode()
             if err.code in (429, 500, 502, 503) and attempt < retries - 1:
-                time.sleep(2 ** attempt * 2)
+                hint = re.search(r"try again in ([\d.]+)s", detail)  # servers often say how long
+                time.sleep(float(hint.group(1)) + 1 if hint else 2 ** attempt * 2)
                 continue
-            raise RuntimeError(f"{role} API error {err.code}: {err.read().decode()[:300]}")
+            raise RuntimeError(f"{role} API error {err.code}: {detail[:300]}")
