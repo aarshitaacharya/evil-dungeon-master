@@ -21,6 +21,16 @@ class JudgeTest(unittest.TestCase):
         plan = [{"tool": "chain", "op": "extend_path", "room": "hallway", "direction": "east", "count": 2}]
         self.assertEqual(check(DEFAULT_WORLD, plan).par, 11)
 
+    def test_par_limit_makes_slow_dungeons_unfair(self):
+        from judge import PAR_LIMIT
+        self.assertEqual(PAR_LIMIT, 20)
+        long = [{"tool": "chain", "op": "extend_path", "room": "hallway", "direction": "east", "count": 4},
+                {"tool": "stage", "op": "add_item", "item": "brass key", "at": "cell/crate"},
+                {"tool": "contract", "op": "second_key", "item": "brass key"}]
+        v = check(DEFAULT_WORLD, long)
+        self.assertTrue(v.winnable)             # 2 more rooms each way keeps it inside the limit
+        self.assertLessEqual(v.par, PAR_LIMIT)
+
     def test_catches_unwinnable(self):
         self.assertFalse(check(DEFAULT_WORLD, UNFAIR).winnable)
 

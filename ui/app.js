@@ -238,7 +238,7 @@ function render() {
       drawItem(ctx, name, p.x, p.y, p.scale, p.hidden ? 0.6 : 1);
     }
     drawPlayer(); drawFx();
-    ctx.setTransform(1, 0, 0, 1, 0, 0); drawBubble();
+    ctx.setTransform(1, 0, 0, 1, 0, 0); drawBubble(); drawBanner();
   }
   drawDM(); drawInventory(); typeDM();
   requestAnimationFrame(render);
@@ -280,6 +280,15 @@ function drawBubble() {
   ctx.beginPath(); ctx.roundRect(x, y, w, h, 5 * u); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(sx - 5 * u, y + h); ctx.lineTo(sx, y + h + 7 * u); ctx.lineTo(sx + 5 * u, y + h); ctx.fill();
   ctx.fillStyle = "#1b1021"; ctx.fillText(p.bubble, x + 8 * u, y + 15 * u);
+}
+function banner(text, color, ms) { view.banner = { text, color, until: now() + ms / view.speed }; }
+function drawBanner() {
+  const b = view.banner; if (!b || now() > b.until) return;
+  const cv = $("#map"), u = dpr; ctx.font = `bold ${19 * u}px ui-monospace, Menlo, monospace`;
+  const w = ctx.measureText(b.text).width + 44 * u, x = (cv.width - w) / 2, y = 14 * u;
+  ctx.fillStyle = "rgba(18,10,24,.9)"; ctx.strokeStyle = b.color; ctx.lineWidth = 3 * u;
+  ctx.beginPath(); ctx.roundRect(x, y, w, 38 * u, 6 * u); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = b.color; ctx.textAlign = "center"; ctx.fillText(b.text, cv.width / 2, y + 26 * u); ctx.textAlign = "left";
 }
 function drawDM() {
   const sheet = { idle: "vamp_idle", scheme: "vamp_attack", laugh: "vamp_attack", hurt: "vamp_hurt" }[view.dm.mood];
@@ -364,6 +373,7 @@ async function handle(e, instant) {
       if (!instant) {
         const text = Math.min(4200, 700 + e.analysis.length * 22);
         await wait(text);
+        if (e.actions.length) banner("THE DM RIGS THE DUNGEON", "#e5484d", 2600);
         riggingFx(e);
         await wait(1600); v.dm.mood = "idle";
       }
@@ -405,6 +415,7 @@ async function handle(e, instant) {
     case "round_end": {
       const wasted = e.moves - e.par;
       v.board.push({ round: e.round, won: e.won, moves: e.moves, par: e.par, wasted }); renderBoard();
+      if (!instant) banner(`${e.won ? "ESCAPED" : "ESCAPE FAILED"} · ${e.moves} moves (par ${e.par})`, e.won ? "#5fd38d" : "#e5484d", 3200);
       if (e.won) {
         v.dm.mood = "hurt"; say(QUIPS.win[e.round % 3], instant);
         if (!instant) { await walk([px("hallway", EXIT_SPOT.north), px("outside", [4, 1.5])]); addFx({ kind: "confetti", x: v.player.x, y: v.player.y, dur: 1800 }); await wait(2000); }
@@ -420,14 +431,19 @@ function riggingFx(e) {
   const oldPos = itemPositions(Object.fromEntries(Object.entries(base).map(([n, i]) => [n, i.at])), e.world);
   for (const [name, i] of Object.entries(now_)) {
     if (!pos[name]) continue;
-    if (!base[name]) addFx({ kind: "poof", x: pos[name].x, y: pos[name].y, dur: 1100 });
-    else if (base[name].at !== i.at && oldPos[name]) addFx({ kind: "fly", name, from: [oldPos[name].x, oldPos[name].y], to: [pos[name].x, pos[name].y], dur: 1300 });
+    if (!base[name]) { addFx({ kind: "poof", x: pos[name].x, y: pos[name].y, dur: 1100 }); addFx({ kind: "text", x: pos[name].x, y: pos[name].y - 12, text: `+ ${name}`, dur: 3200, color: "#ffd166" }); }
+    else if (base[name].at !== i.at && oldPos[name]) {
+      addFx({ kind: "fly", name, from: [oldPos[name].x, oldPos[name].y], to: [pos[name].x, pos[name].y], dur: 1300 });
+      addFx({ kind: "text", x: oldPos[name].x, y: oldPos[name].y - 12, text: `${name} was here`, dur: 2400, color: "#9a86ad" });
+      addFx({ kind: "text", x: pos[name].x, y: pos[name].y - 14, text: `${name} → ${i.at.split("/").pop()}`, dur: 3200, color: "#b57cff" });
+    }
   }
   for (const a of e.actions) {
     if (a.op === "extend_path") Object.keys(e.world.rooms).filter((r) => r.includes("passage")).forEach((r) => { const [x, y] = px(r, [4, 3]); addFx({ kind: "poof", x, y, dur: 1100 }); });
-    if (a.op === "lie") { const [x, y] = px(a.room, [4, 3]); addFx({ kind: "text", x, y, text: "(lies)", dur: 1500, color: "#b57cff" }); }
-    if (a.op === "pest" && pos[a.item]) addFx({ kind: "text", x: pos[a.item].x, y: pos[a.item].y - 8, text: "pest!", dur: 1500, color: "#ffd166" });
-    if (a.op === "second_key" && pos[a.item]) addFx({ kind: "text", x: pos[a.item].x, y: pos[a.item].y - 8, text: "2nd key", dur: 1500, color: "#b57cff" });
+    if (a.op === "extend_path") addFx({ kind: "text", x: px(a.room, [4, 3])[0], y: px(a.room, [4, 3])[1], text: "longer path!", dur: 3000, color: "#6cb6ff" });
+    if (a.op === "lie") { const [x, y] = px(a.room, [4, 3]); addFx({ kind: "text", x, y, text: "(lies!)", dur: 3000, color: "#b57cff" }); }
+    if (a.op === "pest" && pos[a.item]) addFx({ kind: "text", x: pos[a.item].x, y: pos[a.item].y - 8, text: "pest!", dur: 3000, color: "#ffd166" });
+    if (a.op === "second_key" && pos[a.item]) addFx({ kind: "text", x: pos[a.item].x, y: pos[a.item].y - 8, text: "2nd key needed", dur: 3000, color: "#b57cff" });
   }
 }
 function logLine(e) {

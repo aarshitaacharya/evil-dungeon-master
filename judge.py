@@ -4,6 +4,8 @@ Without this, the DM could delete the key and call it a victory. The judge is
 plain code, not an AI, so it can't be talked into anything. It searches the
 rigged game (contracts included) breadth-first and returns the shortest
 winning route, which also gives us "par": the minimum moves a perfect player needs.
+A dungeon only counts as winnable if par <= PAR_LIMIT, so the DM cannot make a round
+that is technically solvable but needs more moves than the Player is allowed.
 """
 import copy
 import json
@@ -13,7 +15,7 @@ from dataclasses import dataclass
 from game import Game
 from harness import Harness
 
-MAX_DEPTH = 40
+PAR_LIMIT = 20   # a perfect player must escape within this many moves (the Player gets 25)
 
 
 @dataclass
@@ -49,7 +51,7 @@ def check(base_world, plan):
     queue, seen = deque([(start, ())]), {_state_key(start)}
     while queue:
         harness, path = queue.popleft()
-        if len(path) >= MAX_DEPTH:
+        if len(path) >= PAR_LIMIT:
             continue
         for command in _candidates(harness.game):
             child = copy.deepcopy(harness)
