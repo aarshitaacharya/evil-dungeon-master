@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evil Dungeon Master</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>EVIL <span>DUNGEON</span> MASTER</h1>
+  <div id="roundpill">Round –</div>
+  <div class="controls">
+    <button id="prev" title="Previous round">⏮</button>
+    <button id="play" title="Play / pause">⏸</button>
+    <button id="next" title="Next round">⏭</button>
+    <span class="speeds" id="speeds">
+      <button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button><button data-s="8">8×</button>
+    </span>
+    <select id="replays" title="Choose a replay"></select>
+  </div>
+</header>
+<input id="scrub" type="range" min="0" max="0" value="0">
+<main>
+  <section id="stage">
+    <canvas id="map"></canvas>
+    <div id="invbar"><span>PACK</span><canvas id="inv" width="420" height="40"></canvas></div>
+  </section>
+  <aside id="dm">
+    <div class="dmhead"><canvas id="dmc" width="112" height="112"></canvas>
+      <div><div class="name">THE EVIL DM</div><div id="judge" class="stamp hidden"></div></div></div>
+    <div id="bubble"></div>
+    <div id="cards"></div>
+  </aside>
+  <section id="bottom">
+    <div id="log"></div>
+    <div id="board"><div class="boardhead">WASTED MOVES <small>(moves − par)</small></div><div id="bars"></div><div id="summary"></div></div>
+  </section>
+</main>
+<div id="splash"><div>Loading dungeon…</div></div>
+<script src="app.js"></script>
+</body>
+</html>
