@@ -6,11 +6,11 @@ The design is a small-scale implementation of the ideas in Google's **EnvHarness
 
 **Round 1: the baseline.** No rigging. The Player explores, takes a few wrong turns, and escapes in 11 moves (par 7).
 
-![Baseline round: the Player explores the dungeon with no rigging](docs/baseline.gif)
+![Baseline round: the Player explores the dungeon with no rigging](docs/round1-baseline.gif)
 
 **Round 3: the DM schemes, and wins.** The DM reads how the Player handled the last rounds, hides the real key in the chest, plants two decoy keys, and stretches the hallway by four rooms. The judge approves it (a perfect player escapes in 16 moves). The Player picks up both decoys, wanders the long hallway, and runs out of its 25 moves.
 
-![The DM analyses the Player, rigs the dungeon, the judge approves it, and the Player tries again](docs/scheming.gif)
+![The DM analyses the Player, rigs the dungeon, the judge approves it, and the Player tries again](docs/round3-dm-wins.gif)
 
 ## How it works
 
