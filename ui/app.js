@@ -394,6 +394,7 @@ async function handle(e, instant) {
       break;
     }
     case "run_end": v.summary = e.summary; renderBoard(); v.dm.mood = "laugh"; break;
+    case "error": v.dm.mood = "idle"; say("⚠ The run stopped: " + e.message, instant); break;
   }
 }
 function riggingFx(e) {
@@ -433,7 +434,9 @@ function resetState() {
 }
 async function playFrom(i) {
   const tok = ++view.token;
-  for (let k = i; k < view.events.length && tok === view.token; k++) {
+  for (let k = i; tok === view.token; k++) {
+    while (k >= view.events.length && view.live && tok === view.token) await new Promise((r) => setTimeout(r, 80));
+    if (k >= view.events.length) break;
     await handle(view.events[k], false);
     if (tok !== view.token) return;
     view.idx = k; $("#scrub").value = k;
@@ -453,7 +456,26 @@ function skipRound(dir) {
   if (target !== undefined) jumpTo(target);
 }
 
+function startLive() {
+  const rounds = +$("#liverounds").value, btn = $("#golive");
+  btn.disabled = true; btn.textContent = "● starting…";
+  fetch("/api/start", { method: "POST", headers: { "X-EDM": "1", "Content-Type": "application/json" }, body: JSON.stringify({ rounds }) })
+    .then((r) => r.json()).then((r) => {
+      if (r.error) { say("Could not start: " + r.error, true); btn.disabled = false; btn.textContent = "● Live run"; return; }
+      view.token++; resetState(); view.events = []; view.idx = -1; view.live = true; view.playing = true; $("#play").textContent = "⏸";
+      $("#roundpill").innerHTML = `<span class="livetag">● LIVE</span>`; $("#scrub").max = 0;
+      const es = new EventSource("/api/stream");
+      es.onmessage = (m) => { view.events.push(JSON.parse(m.data)); $("#scrub").max = view.events.length - 1; };
+      es.addEventListener("done", () => { es.close(); view.live = false; btn.disabled = false; btn.textContent = "● Live run"; refreshReplays(); });
+      playFrom(0);
+    });
+}
+async function refreshReplays() {
+  const list = await (await fetch("/api/replays")).json(), sel = $("#replays");
+  sel.innerHTML = list.map((r) => `<option value="${r.path}">${r.name}</option>`).join("");
+}
 async function loadReplay(path, at) {
+  view.live = false;
   const text = await (await fetch("/replay/" + path)).text();
   view.events = text.trim().split("\n").map((l) => JSON.parse(l));
   $("#scrub").max = view.events.length - 1; resetState(); view.idx = -1; view.token++;
@@ -472,6 +494,7 @@ async function init() {
   const q = new URLSearchParams(location.search);
   if (q.has("speed")) { view.speed = +q.get("speed"); [...$("#speeds").children].forEach((b) => b.classList.toggle("on", +b.dataset.s === view.speed)); }
   if (list.length) loadReplay(sel.value, q.has("at") ? +q.get("at") : undefined);  // ?at=N opens paused at event N (for screenshots)
+  $("#golive").onclick = startLive;
   $("#play").onclick = () => { view.playing = !view.playing; $("#play").textContent = view.playing ? "⏸" : "▶"; if (view.playing && view.gate) view.gate(); };
   $("#prev").onclick = () => skipRound(-1); $("#next").onclick = () => skipRound(1);
   $("#scrub").oninput = (ev) => jumpTo(+ev.target.value);

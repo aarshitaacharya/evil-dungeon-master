@@ -46,3 +46,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template
 #splash { position: fixed; inset: 0; background: var(--bg); display: grid; place-items: center; font: 12px var(--pixel); z-index: 9; transition: opacity .4s; }
 #splash.gone { display: none; }
 @media (max-width: 900px) { main { grid-template-columns: 1fr; grid-template-areas: "stage" "dm" "log" "board"; } }
+
+.live { display: inline-flex; gap: 4px; margin-left: 8px; } #golive { background: #3a1220; border-color: var(--red); color: #ffb3b6; }
+#golive:hover { background: var(--red); color: #120a18; } #golive[disabled] { opacity: .5; cursor: wait; }
+.livetag { color: var(--red); } 

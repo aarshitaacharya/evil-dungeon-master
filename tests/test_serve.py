@@ -22,3 +22,11 @@ class ServeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LiveGuardTest(unittest.TestCase):
+    def test_start_requires_local_host_and_our_header(self):
+        from serve import request_allowed
+        self.assertTrue(request_allowed({"Host": "localhost:8000", "X-EDM": "1"}))
+        self.assertFalse(request_allowed({"Host": "localhost:8000"}))              # no header (cross-site form)
+        self.assertFalse(request_allowed({"Host": "evil.example.com", "X-EDM": "1"}))  # DNS rebinding
